@@ -51,6 +51,7 @@ how many. The other steps say "usually takes this long" instead.
 
 from __future__ import annotations
 
+import codecs
 import html
 import json
 import os
@@ -539,12 +540,13 @@ def utf8_output() -> None:
         reconfigure = getattr(stream, "reconfigure", None)
         if reconfigure is None:
             continue
+        # Anything but UTF-8 is switched: a code page that knows
+        # Cyrillic (cp1251) still can't write "\u00d7" or "\u2192".
         try:
-            # A Cyrillic letter, written as an escape: if the stream
-            # can't encode even this, it can't write non-English file
-            # names either.
-            "\u044f".encode(stream.encoding or "ascii")
-        except (LookupError, UnicodeEncodeError):
+            current = codecs.lookup(stream.encoding or "ascii").name
+        except LookupError:
+            current = ""
+        if current != "utf-8":
             reconfigure(encoding="utf-8", errors="replace")
 
 

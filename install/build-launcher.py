@@ -58,6 +58,7 @@ import argparse
 import os
 import shutil
 import subprocess
+import codecs
 import sys
 from pathlib import Path
 
@@ -297,8 +298,10 @@ def по_русски() -> None:
         if менять is None:
             continue
         try:
-            "я".encode(поток.encoding or "ascii")
-        except (LookupError, UnicodeEncodeError):
+            своя = codecs.lookup(поток.encoding or "ascii").name
+        except LookupError:
+            своя = ""
+        if своя != "utf-8":
             менять(encoding="utf-8", errors="replace")
 
 
