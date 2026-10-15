@@ -55,10 +55,10 @@
 from __future__ import annotations
 
 import argparse
+import codecs
 import os
 import shutil
 import subprocess
-import codecs
 import sys
 from pathlib import Path
 

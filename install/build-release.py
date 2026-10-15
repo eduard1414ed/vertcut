@@ -74,9 +74,9 @@ MIT велит носить с собой имя и отказ от гарант
 from __future__ import annotations
 
 import argparse
+import codecs
 import shutil
 import subprocess
-import codecs
 import sys
 import tempfile
 import zipfile
