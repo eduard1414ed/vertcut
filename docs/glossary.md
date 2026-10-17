@@ -184,6 +184,9 @@
 | сохранить надпись этой вертикалке | **Save for this clip** | |
 | полоса под субтитр на плашке | **subtitle area** | |
 | показать плашку / вернуться к кадру | **Show the end card / Back to the video** | |
+| субтитры в файле ролика: есть / нет | **show subtitles in the clip**; выключены — метка **off**, в строке сборки **without subtitles** | в команде — `vertcut subs … --on\|--off` |
+| причина устаревания: субтитры выключили / включили | **subtitles turned off / subtitles turned on** | |
+| галочка «новые видео — без субтитров» | карточка **Subtitles in new videos**, галочка **export new videos without subtitles** | действует на видео, разобранные после неё |
 | заменить… (обложку) | **Replace…** | |
 | свой файл шрифта / фона | **Add font file… / Add image…** | |
 | готовые виды | **Presets** | `looks.yaml`: `name`, `about`, `cost`, `settings` |
@@ -195,6 +198,11 @@
 | строк · знаков (счётчик у фразы) | **2 lines · 14 and 16 characters** | |
 | список фраз ролика в редакторе | **Phrases** | не *lines*: в списке фразы, а строки — внутри |
 | снять правки текста и швов | **Reset text edits**; в вопросе — «splits and merges» | слова «шов» на экране нет |
+| вычитать субтитры моделью | **Check with AI / Check again**; идёт — *Checking…* | в команде — `vertcut proofread` (`check` уже занят окружением) |
+| правка модели (у фразы) | **AI fix**; счёт — *6 AI fixes* | не *suggestion*: suggestions — кандидаты во фрагменты |
+| принять / поправить / отклонить правку модели | **Accept / Edit / Dismiss**; все — **Accept all (6) / Dismiss all** | в команде — `--accept N\|all`, `--dismiss N\|all` |
+| модель ничего не нашла | **AI found nothing to fix** | |
+| дорогая проверка (сбоку от кнопки) | **≈ $0.12 · over limit** | цена пишется только дорогая |
 | сделать этот стиль моим | **Save as my style** | |
 | взять мой стиль | **My style** (вид), **Use my style** (кнопка) | |
 | вернуть поставляемый | **Reset to default style** | |
@@ -254,7 +262,7 @@
 |---|---|---|
 | лист (контактный лист, лист раскладки, лист стиля) | **sheet** | `--sheet`; файл `subtitles-sheet.jpg`, `style-sheet.jpg` |
 | название ролика | **title** | `vertcut title … --title` |
-| заново | **again** | `--again` у `ingest`, `pick`, `render`, `queue`, `suggest` |
+| заново | **again** | `--again` у `ingest`, `pick`, `render`, `queue`, `suggest`, `proofread` |
 | да (согласиться на дорогой запрос) | **yes** | `--yes` |
 | ярлык (кто поднял сервис по иконке) | **icon** | `screen --exit-with-icon` |
 | кроп / полный кадр в команде | **crop / full** | `frame --mode crop\|full` |
@@ -270,7 +278,8 @@
 Имена на диске — словами экрана: `Inbox`, `logs/launch-…log`,
 `backgrounds/`, `spending.json`, `samples.txt`, `install/progress.html`,
 `analysis-job.json`, `ai-job.json`, `suggestions.json`,
-`suggestions.answer.txt`, `descriptions.answer.txt`, `thumbnail.jpg`,
+`suggestions.answer.txt`, `descriptions.answer.txt`, `proofread.json`,
+`proofread.answer.txt`, `thumbnail.jpg`,
 `cover.jpg` (кадр для списков — не *preview*: preview занят черновым
 просмотром), `end-card.png`, `analysis.log`, `export.log`; у программы
 `python/` и `version.json`. Полная таблица «старое → новое» —

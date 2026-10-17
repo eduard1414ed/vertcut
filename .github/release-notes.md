@@ -5,12 +5,15 @@ own computer, in your browser.
 
 ## What's new in @VERSION@
 
-- Long phrases are no longer marked in yellow as if the subtitles
-  would be cut off. They never were: a phrase too long for one page is
-  shown page by page, and no words are lost. The screen now says so in
-  a short grey note.
-- A long phrase is now split into evenly sized pages, so a page with a
-  single leftover word no longer happens.
+- **Check with AI** on the Subtitles screen. Speech recognition gets
+  names, titles and word endings wrong; the AI reads the subtitles of
+  one clip and suggests fixes as a list. You accept, edit or dismiss
+  each one yourself — nothing changes until you do. Needs an API key;
+  the price is shown only when a check would cost more than your limit.
+- **Clips without subtitles.** Each clip has a "show subtitles in the
+  clip" switch on its Subtitles screen. In Settings you can make new
+  videos export without subtitles by default; videos you have already
+  analyzed don't change.
 
 ## How to install
 

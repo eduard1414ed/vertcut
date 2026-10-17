@@ -112,7 +112,7 @@ function рисовать() {
     ],
     заголовок: эл('h1', { класс: 'vc-h1' }, ['Settings']),
     лид: 'Everything stays on this computer: no account, no cloud. ' +
-         'The API key too — and only two buttons need it.',
+         'The API key too — and only three buttons need it.',
     мета: [моно(РАЗДЕЛЫ.find(([имя]) => имя === раздел)[1])],
     тело: содержимое(),
   });
@@ -127,6 +127,36 @@ function содержимое() {
 }
 
 // ── My style and fonts ────────────────────────────────────────────────
+
+// Своей карточкой, а не строкой «моего стиля»: это не про то, как
+// выглядят субтитры, и «Save as my style» её не трогает. Действует
+// на видео, разобранные после неё (`ingest.принять`).
+function субтитры_новых() {
+  const галочка = эл('input', { type: 'checkbox',
+                                checked: это.новые_без_субтитров });
+  галочка.addEventListener('change', async () => {
+    убрать_полосы();
+    try {
+      это = await связь.послать('новые-без-субтитров',
+                                { вкл: галочка.checked });
+    } catch (беда) { сказать_беду(беда); }
+    рисовать();
+  });
+  return эл('div', { класс: 'vc-card' }, [
+    эл('div', { класс: 'в-ряд' }, [
+      эл('b', { класс: 'vc-card__title', текст: 'Subtitles in new videos' }),
+    ]),
+    эл('label', { класс: 'в-выключатель' }, [
+      галочка, эл('span', { текст: 'export new videos without subtitles' }),
+    ]),
+    эл('p', {
+      класс: 'в-подпись', стиль: { margin: '0' },
+      текст: 'Clips of videos you analyze from now on export without ' +
+             'subtitles. You can still turn subtitles on for any clip. ' +
+             'Videos you have already analyzed don\'t change.',
+    }),
+  ]);
+}
 
 function субтитры() {
   const л = это.личный_стиль;
@@ -169,6 +199,7 @@ function субтитры() {
           }),
     ]),
     л.числа ? числа_стиля(л.числа) : null,
+    субтитры_новых(),
     эл('div', { класс: 'vc-card' }, [
       эл('div', { класс: 'в-ряд' }, [
         эл('b', { класс: 'vc-card__title', текст: 'Fonts' }),
@@ -400,8 +431,9 @@ function ключ() {
     эл('div', { класс: 'vc-card' }, [
       эл('p', {
         класс: 'vc-lede', стиль: { margin: '0' },
-        текст: 'It\'s needed for exactly two things: AI suggestions for ' +
-               'segments and AI descriptions. Everything else — ' +
+        текст: 'It\'s needed for exactly three things: AI suggestions for ' +
+               'segments, AI descriptions and checking subtitles with AI. ' +
+               'Everything else — ' +
                'transcribing, shots, crop, subtitles, export — works ' +
                'without it and without internet.',
       }),
@@ -416,6 +448,10 @@ function ключ() {
     инструкция('описания', 'Prompt for descriptions',  // какая — для сервера, не для человека
                'Vertcut adds your samples to it, if you have any — they ' +
                'matter more than the prompt.'),
+    инструкция('вычитка', 'Prompt for checking subtitles',  // какая — для сервера, не для человека
+               'AI gets this prompt, the clip\'s subtitle lines, a few ' +
+               'phrases around the clip and how the video begins. It ' +
+               'answers with fixes; nothing changes until you accept one.'),
     расходы(),
   ];
 }

@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "vertcut"
-version = "0.1.1"
+version = "0.2.0"
 description = "Cut long videos into vertical clips with subtitles, on your own computer"
 readme = "README.md"
 license = "MIT"

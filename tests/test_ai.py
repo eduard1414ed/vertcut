@@ -534,7 +534,7 @@ def test_правило_языка_стоит_в_конце_просьбы_и_с
     """
     from vertcut import prompts
 
-    for какая in (prompts.ФРАГМЕНТЫ, prompts.ОПИСАНИЯ):
+    for какая in prompts.ВСЕ:
         assert "ANSWER LANGUAGE" not in prompts.ФОРМА[какая], \
             "правило вернулось в форму"
     assert "ЯЗЫК ОТВЕТА" in prompts.ПРО_ЯЗЫК
@@ -555,13 +555,15 @@ def test_инструкции_модели_английские_а_ключи_д
     from vertcut import layout, prompts
     from vertcut.text import азбука
 
-    for какая in (prompts.ФРАГМЕНТЫ, prompts.ОПИСАНИЯ):
+    for какая in prompts.ВСЕ:
         assert азбука(prompts.поставляемая(какая)) == "латиница", какая
         assert "in Russian letters" in prompts.ФОРМА[какая]
     for ключ in ('"фрагменты"', '"с"', '"по"', '"название"', '"о_чём"'):
         assert ключ in prompts.ФОРМА[prompts.ФРАГМЕНТЫ], ключ
     for ключ in ('"описания"', '"ключ"', '"текст"'):
         assert ключ in prompts.ФОРМА[prompts.ОПИСАНИЯ], ключ
+    for ключ in ('"правки"', '"строка"', '"стало"', '"почему"'):
+        assert ключ in prompts.ФОРМА[prompts.ВЫЧИТКА], ключ
 
 
 @pytest.mark.parametrize("текст,ждём", [

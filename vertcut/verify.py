@@ -654,6 +654,12 @@ def экран_против_файла(project, meta: dict, cut: dict, ряды:
             f"Nothing to compare with: {файл.name} doesn't exist",
             hint="export the clip first")
 
+    from . import subs
+    if not subs.в_файле(project, cut):
+        raise VertcutError(
+            "This clip exports without subtitles, so there's nothing on "
+            "screen to compare with the file",
+            hint=f"turn them on: vertcut subs {project.name} {cut['id']} --on")
     точки = preview.секунды_показов(раскл, ЭКРАН_ТОЧЕК)
     if not точки:
         raise VertcutError("This clip has no subtitles")
@@ -774,7 +780,10 @@ def итоги(штамп: dict) -> list[dict]:
                                       "so there's nothing to check"})
 
     с = штамп.get("сверка_субтитров") or {}
-    if с.get("худшая") is not None:
+    if штамп.get("субтитры") is False:
+        вышло.append({"имя": ИМЕНА["субтитры"], "как": "skipped",
+                      "подробно": "the subtitles are off"})
+    elif с.get("худшая") is not None:
         вышло.append({"имя": ИМЕНА["субтитры"],
                       "как": "passed" if с.get("сошлось") else "failed",
                       "подробно": _связь(с)})

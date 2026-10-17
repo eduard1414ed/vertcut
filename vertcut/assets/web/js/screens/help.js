@@ -140,8 +140,9 @@ const БЕДЫ = [
       'Some Cyrillic letters look exactly like Latin ones. If the key ' +
       'went through a chat or a document, copy it again from where you ' +
       'saved it — or create a new key at your provider.',
-      'Without a key, everything works except two buttons: AI ' +
-      'suggestions for segments and AI descriptions.',
+      'Without a key, everything works except three buttons: AI ' +
+      'suggestions for segments, AI descriptions and Check with AI ' +
+      'for subtitles.',
     ],
   },
   {
