@@ -42,7 +42,9 @@ It also works without a script (the text comes from the speech, and you
 can correct any phrase), keeps subtitles clear of the buttons that
 TikTok, Reels and Shorts draw on top, and can finish a clip with an
 end card (your background, an episode cover, a line of text). The end
-card is off unless you turn it on.
+card is off unless you turn it on. A clip can also be exported without
+subtitles: untick **show subtitles in the clip**, or in Settings make new
+videos export without them.
 
 What it doesn't do: download videos from links (only files from your
 disk), upload clips anywhere, or run on a phone.
@@ -221,15 +223,19 @@ doesn't work.
 
 ## AI is optional
 
-Two things in Vertcut can ask an AI model for help: **AI suggestions**
-(it reads the transcript and suggests segments) and **descriptions**
-for your clips. They need your own API key from
+Three things in Vertcut can ask an AI model for help: **AI suggestions**
+(it reads the transcript and suggests segments), **descriptions**
+for your clips, and **Check with AI** in the subtitle editor (it
+suggests fixes for misheard words, word endings and names; nothing
+changes until you accept a fix). They need your own API key from
 Anthropic (Claude) or from a service that speaks the OpenAI API. That's
 a separate paid account, not a Claude or ChatGPT subscription. The
-money is yours, and Vertcut shows what each request will cost before
-you click whenever it knows the price.
+money is yours. For suggestions and descriptions Vertcut shows what the
+request will cost before you click, whenever it knows the price.
+Checking one clip's subtitles costs a few cents, so its price is shown
+only when it's above your "ask first" limit.
 
-**Without a key, everything else works.** Those two just stay
+**Without a key, everything else works.** Those three just stay
 off. The Claude path is tested with a real key; the OpenAI-style path
 isn't yet.
 
@@ -242,9 +248,10 @@ isn't yet.
   from Hugging Face. Once: after that, analysis doesn't go online.
 - **When you click an AI button:** text goes to the AI provider whose
   key you entered: the transcript of your video (or of the clips you're
-  describing), its length, and for descriptions also the video's file
-  name and your samples (descriptions you wrote yourself, in the
-  settings), if any.
+  describing or checking), its length, and for descriptions and
+  subtitle checks also the video's file name and how the video begins;
+  for descriptions also your samples (descriptions you wrote yourself,
+  in the settings), if any.
   Never the video or the audio.
 
 That's all. Vertcut doesn't send analytics, has no account and doesn't

@@ -400,6 +400,9 @@ def обложка_ролика(project: Path, meta: dict, ident: str,
                    говорить=None) -> Path:
     """Кадр 9:16 с субтитром для списков. Считается один раз и лежит.
 
+    У ролика без субтитров — без субтитра: обложка показывает то, что
+    будет в файле.
+
     **Считать её на каждый показ нельзя.** Один такой кадр — это выемка
     кадра из исходника плюс рисование субтитра, почти секунда; в списке
     сборки их бывает двадцать. Двадцать секунд ожидания на экран,
@@ -410,11 +413,14 @@ def обложка_ролика(project: Path, meta: dict, ident: str,
     значит показывает не тот монтаж или не тот стиль. Считать заново
     дешевле, чем врать картинкой.
     """
-    from . import layout, render
+    from . import layout, render, subs
 
     готовая = layout.cut_preview(project, ident)
+    # Свой стиль вертикалки — тоже: без него обложка ролика, которому
+    # поправили стиль, оставалась бы старой.
     зависит = [layout.cut_json(project, ident),
-               layout.project_subs(project)]
+               layout.project_subs(project),
+               layout.cut_subs(project, ident)]
     свежая = (готовая.exists()
               and all(not з.exists()
                       or з.stat().st_mtime <= готовая.stat().st_mtime
@@ -425,7 +431,8 @@ def обложка_ролика(project: Path, meta: dict, ident: str,
     всё = render.открыть_ролик(project, meta, ident,
                                говорить=говорить or (lambda *_: None))
     картинка = кадр(project, meta, всё["cut"], всё["ряды"], всё["раскл"],
-                    всё["prof"], всё["шрифт"])
+                    всё["prof"], всё["шрифт"],
+                    без_субтитра=not subs.в_файле(project, всё["cut"]))
     высота = round(ОБЛОЖКА_Ш * картинка.height / картинка.width)
     from PIL import Image
     готовая.parent.mkdir(parents=True, exist_ok=True)

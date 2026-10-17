@@ -226,7 +226,7 @@ def run(project: Path, meta: dict, говорить=None,
                 дело["отчёт"] = {
                     "секунд": штамп["took"], "мегабайт": штамп["megabytes"],
                     "сверка": штамп["сверка"],
-                    "субтитры": штамп["сверка_субтитров"],
+                    "субтитры": штамп.get("сверка_субтитров"),
                     # Пять заслонов словами — тот же ответ, что в отказе.
                     "проверки": verify.итоги(штамп)}
             except VertcutError as беда:
@@ -253,6 +253,21 @@ def показать(project: Path) -> list[dict]:
     return прочитать(project).get("дела", [])
 
 
+def _без_субтитров(project: Path, cut: dict | None, как: str) -> bool:
+    """Без субтитров ли этот ролик — для строки на экране сборки.
+
+    У собранного — по штампу ЛЕЖАЩЕГО файла: галочку могли снять уже
+    после сборки, и «without subtitles» у файла с субтитрами было бы
+    неправдой. У остальных — по тому, как он соберётся.
+    """
+    if not cut:
+        return False
+    if как == works.ГОТОВ:
+        return (cut.get("render") or {}).get("субтитры") is False
+    from . import subs
+    return not subs.в_файле(project, cut)
+
+
 def обзор(project: Path, meta: dict) -> dict:
     """Вся сборка одним куском: что в очереди, что ждёт, сколько времени.
 
@@ -266,7 +281,7 @@ def обзор(project: Path, meta: dict) -> dict:
     `render.почему_устарел`, и второй ответ на тот же вопрос разошёлся
     бы с первым молча.
     """
-    from . import layout, tuning
+    from . import layout, subs, tuning
 
     состояние = прочитать(project)
     хозяин = состояние.get("хозяин") or {}
@@ -310,6 +325,7 @@ def обзор(project: Path, meta: dict) -> dict:
             "байт": (файл.stat().st_size
                      if файл and файл.exists() else None),
             "состояние": как,
+            "без_субтитров": _без_субтитров(project, cut, как),
         })
 
     # Упавшая тоже стоит своей строкой — с причиной и «Try again».
@@ -326,6 +342,7 @@ def обзор(project: Path, meta: dict) -> dict:
             continue
         ждут.append({"id": cut["id"], "зовут": pick.зовут(cut),
                      "почему": причина, "duration": cut["duration"],
+                     "без_субтитров": not subs.в_файле(project, cut),
                      "оценка": round(cut["duration"] * tuning.ЦЕНА_СБОРКИ, 1)})
 
     осталось = [д for д in дела if д["состояние"] in (works.ЖДЁТ, works.ИДЁТ)]

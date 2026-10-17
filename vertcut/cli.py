@@ -202,6 +202,11 @@ def парсер() -> argparse.ArgumentParser:
     p.add_argument("ключ", metavar="CLIP_ID")
     p.add_argument("--sheet", dest="лист", action="store_true",
                    help="draw a sheet of the subtitle layout")
+    вкл = p.add_mutually_exclusive_group()
+    вкл.add_argument("--on", dest="в_файле", action="store_const", const=True,
+                     default=None, help="show subtitles in the exported clip")
+    вкл.add_argument("--off", dest="в_файле", action="store_const",
+                     const=False, help="export the clip without subtitles")
     p.set_defaults(дело=_subs)
 
     p = слова.add_parser(
@@ -348,6 +353,22 @@ def парсер() -> argparse.ArgumentParser:
     p.add_argument("--yes", dest="да", action="store_true",
                    help="agree to a request above the ask-above price")
     p.set_defaults(дело=_describe)
+
+    p = слова.add_parser(
+        "proofread",
+        help="ask AI to check a clip's subtitles for recognition mistakes "
+             "(costs money)")
+    p.add_argument("слаг", metavar="VIDEO_ID")
+    p.add_argument("ключ", metavar="CLIP_ID")
+    p.add_argument("--again", dest="заново", action="store_true",
+                   help="ask again even if there are AI fixes already")
+    p.add_argument("--accept", dest="принять", metavar="N|all",
+                   help="accept an AI fix by its number in the list, or all")
+    p.add_argument("--dismiss", dest="отклонить", metavar="N|all",
+                   help="dismiss an AI fix by its number in the list, or all")
+    p.add_argument("--yes", dest="да", action="store_true",
+                   help="agree to a request above the ask-above price")
+    p.set_defaults(дело=_proofread)
 
     p = слова.add_parser("screen", help="open Vertcut in the browser")
     p.add_argument("--port", dest="порт", type=int, default=None,
@@ -656,6 +677,92 @@ def _describe(args) -> None:
                      f"“{пара['начало']}…”: {пара['один']} and "
                      f"{пара['другой']}")
     report.скажи(f"\n  the whole AI answer: {layout.notes_raw(project)}")
+
+
+def _proofread(args) -> None:
+    """Вычитка субтитров моделью. Правки предлагаются, а не ложатся сами."""
+    from . import ingest, layout, pick, proofread
+
+    project, _, _ = ingest.открыть(args.слаг)
+    cut = pick.load(project, args.ключ)
+    if args.принять or args.отклонить:
+        _решить_правки(project, cut, args)
+        return
+
+    было = proofread.свежие(project, cut)
+    if было and not args.заново:
+        report.скажи("There are AI fixes already:")
+        _напечатать_правки(было, args)
+        return
+
+    оценка = proofread.оценить(project, cut)
+    report.скажи(_цена_словами(оценка) + "\n")
+    это = proofread.спросить(project, args.ключ, разрешено_дорого=args.да,
+                             на_ходу=report.скажи)
+    report.скажи(
+        f"\n{это['модель']} answered in {это['секунд']:.1f} s: "
+        f"{это['вошло']} + {это['вышло']} tokens"
+        + (f", ${это['деньги']:.4f}" if это["деньги"] is not None
+           else ", price of this model unknown"))
+    _про_прикидку(оценка, это)
+    if это["оборвался"]:
+        report.скажи("  THE ANSWER WAS CUT OFF at the token limit — the last "
+                     "fix may be missing.")
+    if это["не_та_азбука"]:
+        report.скажи("  WRONG LANGUAGE: "
+                     + report.счёт(это["не_та_азбука"], "fix", "fixes")
+                     + " came in another alphabet and were left out.")
+    if это["чужие_строки"]:
+        report.скажи("  fixes for lines that aren't in this clip were left "
+                     "out: " + ", ".join(это["чужие_строки"]))
+    if not это["правки"]:
+        report.скажи("\nAI found nothing to fix.")
+    else:
+        report.скажи(f"\nAI suggested "
+                     + report.счёт(len(это["правки"]), "fix", "fixes") + ":")
+        _напечатать_правки(это["правки"], args)
+    report.скажи(f"\n  the whole AI answer: "
+                 f"{layout.proofread_raw(project, args.ключ)}")
+
+
+def _напечатать_правки(правки: list[dict], args) -> None:
+    for н, п in enumerate(правки, 1):
+        report.скажи(f"\n  #{н}  {п['было']}")
+        report.скажи(f"   →  {п['стало']}")
+        if п["почему"]:
+            report.скажи(f"      {п['почему']}")
+    report.скажи(f"\nAccept: vertcut proofread {args.слаг} {args.ключ} "
+                 "--accept 1 (or --accept all); dismiss: --dismiss 1. "
+                 "To change a fix first, edit the phrase in the subtitle "
+                 "editor.")
+
+
+def _решить_правки(project, cut: dict, args) -> None:
+    """Принять или отклонить по номеру в списке — или все разом."""
+    from . import pick, proofread
+
+    живые = proofread.свежие(project, cut)
+    что = args.принять or args.отклонить
+    if что == "all":
+        с = по = None
+    else:
+        try:
+            п = живые[int(что) - 1]
+        except (ValueError, IndexError):
+            raise VertcutError(
+                f"No AI fix number {что}",
+                hint=f"see the list: vertcut proofread {args.слаг} "
+                     f"{args.ключ}") from None
+        с, по = п["с"], п["по"]
+    if args.принять:
+        сколько = proofread.принять(project, cut, с, по)
+        pick.update(project, cut)
+        report.скажи("Accepted " + report.счёт(сколько, "AI fix", "AI fixes")
+                     + ". The clip is out of date — export again.")
+    else:
+        сколько = proofread.отклонить(project, cut, с, по)
+        report.скажи("Dismissed " + report.счёт(сколько, "AI fix", "AI fixes")
+                     + ".")
 
 
 def _screen(args) -> None:
@@ -1103,9 +1210,23 @@ def _subs(args) -> None:
     from . import render
 
     папка, meta, laid = _открыть(args.слаг)
+    if args.в_файле is not None:
+        cut = pick.load(папка, args.ключ)
+        subs.задать_в_файле(папка, cut, args.в_файле)
+        pick.update(папка, cut)
+        причина = render.почему_устарел(папка, cut)
+        report.скажи(("Subtitles are on" if args.в_файле else
+                      "This clip now exports without subtitles")
+                     + (f". Out of date — export again ({причина})."
+                        if причина and cut.get("render") else "."))
+        return
     всё = render.открыть_ролик(папка, meta, args.ключ)
     cut, prof, шрифт, раскл = (всё["cut"], всё["prof"], всё["шрифт"],
                                всё["раскл"])
+    if not subs.в_файле(папка, cut):
+        report.скажи("\nSUBTITLES ARE OFF for this clip: it exports without "
+                     f"them. Turn them on: vertcut subs {args.слаг} "
+                     f"{args.ключ} --on")
 
     report.скажи(f"\n{pick.зовут(cut)}   "
                  f"{report.счёт(len(раскл['фразы']), 'phrase', 'phrases')}, "

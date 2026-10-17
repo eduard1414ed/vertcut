@@ -43,7 +43,8 @@ from __future__ import annotations
 
 from . import layout
 
-ФРАГМЕНТЫ, ОПИСАНИЯ = "фрагменты", "описания"
+ФРАГМЕНТЫ, ОПИСАНИЯ, ВЫЧИТКА = "фрагменты", "описания", "вычитка"
+ВСЕ = (ФРАГМЕНТЫ, ОПИСАНИЯ, ВЫЧИТКА)
 
 # То, что не правится никогда. Форма ответа — договор между сервисом
 # и моделью, и человек в нём не участник.
@@ -92,6 +93,27 @@ transcript's language. With an English transcript:
   {"ключ": "0076-0113", "текст": "Why the numbers matter"}
 With a Russian transcript:
   {"ключ": "0076-0113", "текст": "Зачем там цифры"}
+""",  # не для человека: ключи json в форме — договор с сервисом
+    ВЫЧИТКА: """
+ANSWER FORMAT — Vertcut sets it; don't change it.
+
+Reply with one json object and nothing else:
+
+{"правки": [{"строка": "508-515", "стало": "…", "почему": "…"}, …]}
+
+  "строка" — exactly the id shown in brackets before the line below;
+  "стало" — the whole line as it should read, not only the fixed word;
+  "почему" — a few words: what was wrong.
+
+List only the lines you change. Nothing to fix — {"правки": []}.
+Only lines of the clip can be fixed, not the context around it.
+
+The keys are field names, like code: keep them exactly as written,
+in Russian letters. The values are text for people: write them in the
+transcript's language. With an English transcript:
+  {"строка": "12-19", "стало": "…", "почему": "misheard: “their”"}
+With a Russian transcript:
+  {"строка": "12-19", "стало": "…", "почему": "окончание: «историй»"}
 """,
 }
 

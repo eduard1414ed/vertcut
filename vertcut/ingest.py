@@ -571,7 +571,8 @@ def принять(source: Path, *, script_path: Path | None = None,
         raise VertcutError(f"No such file: {source}")
 
     project = where(source)
-    meta = {} if заново else read_meta(project)
+    было = read_meta(project)
+    meta = {} if заново else dict(было)
 
     говорить(f"Reading the file: {source.name}")
     свойства = media.probe(source)
@@ -595,6 +596,15 @@ def принять(source: Path, *, script_path: Path | None = None,
         **свойства,
     })
     meta.setdefault("stages", {})
+    # «Без субтитров» видео решается ОДИН раз — когда оно разобрано
+    # впервые, по галочке настроек. Дальше галочка его не трогает
+    # (разбор заново — тоже): иначе, сняв её, человек молча вернул бы
+    # субтитры сорока роликам старого видео.
+    from . import config, subs
+    if было.get(subs.БЕЗ_СУБТИТРОВ):
+        meta[subs.БЕЗ_СУБТИТРОВ] = True
+    elif not было.get("fingerprint") and config.новые_без_субтитров():
+        meta[subs.БЕЗ_СУБТИТРОВ] = True
     write_meta(project, meta)          # сразу, чтобы разбор было видно
 
     говорить(f"  {свойства['width']}×{свойства['height']}, "
@@ -613,7 +623,6 @@ def принять(source: Path, *, script_path: Path | None = None,
     # правка «моего стиля» устаревала бы собранные ролики ЧУЖИХ видео:
     # отпечаток профиля входит в штамп сборки. Копия отвечает на это
     # раз и навсегда.
-    from . import subs
     путь, откуда = subs.завести(project)
     if откуда != subs.СВОЙ:
         говорить(f"  subtitle style: copy ({откуда}) → {путь.name}")

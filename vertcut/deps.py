@@ -76,6 +76,7 @@ LIBS = [
     ("looks.yaml", "presets"),
     ("prompt-suggest.txt", "prompt for segments"),
     ("prompt-notes.txt", "prompt for descriptions"),
+    ("prompt-proofread.txt", "prompt for checking subtitles"),
     ("fonts/InterTight.ttf", "subtitle font"),
     ("fonts/GolosText.ttf", "subtitle font"),
     ("fonts/Oswald.ttf", "subtitle font"),

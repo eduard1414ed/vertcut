@@ -687,6 +687,12 @@ html, body { height: 100%; }
    этом всё равно держатся короткими: перенос — это заслон, а не
    разрешение писать в кнопке предложение. */
 .в-панель .в-ряд { flex-wrap: wrap; }
+/* Галочка «show subtitles in the clip» — и в редакторе, и на экране
+   вертикалки. Выключены — карточки стиля приглушены, но правятся. */
+.в-выключатель { display: flex; align-items: center; gap: var(--sp-2); cursor: pointer; }
+.в-выключатель input { margin: 0; }
+.в-выключатель span { font-size: var(--t-base); color: var(--ink); }
+.в-приглушено { opacity: .45; }
 .в-настройка { display: flex; flex-direction: column; gap: 6px; }
 .в-настройка__зовут {
   font: 400 var(--t-xs)/1 var(--mono); letter-spacing: var(--ls-caps);
@@ -848,6 +854,45 @@ div.vc-step[data-некуда] .vc-step__n { color: var(--ink-off); }
 .в-правка__счёт { display: block; white-space: nowrap; }
 .в-правка__кнопки { flex-wrap: wrap; gap: 6px; }
 .в-строки { overflow-x: hidden; }
+
+/*
+  Правка от модели стоит у своей фразы: сверху как было (неверные
+  слова зачёркнуты), под ним как станет (новые подсвечены), ниже
+  серым почему. Строка с правкой чуть темнее остальных — её видно,
+  листая список.
+*/
+.в-строка.в-вычитка { background: var(--surface-alt); }
+.в-вычитка__тело { display: flex; flex-direction: column; gap: 6px; flex: 1; min-width: 0; }
+.в-вычитка__было { color: var(--ink-3); font-size: var(--t-md); overflow-wrap: anywhere; }
+.в-вычитка__было del { color: var(--bad-ink); text-decoration-color: var(--bad-ink); }
+.в-вычитка__стало { color: var(--ink); overflow-wrap: anywhere; }
+.в-вычитка__стало ins {
+  text-decoration: none; background: var(--good-bg); color: var(--good-ink);
+  border-radius: 3px; padding: 0 2px; box-shadow: inset 0 -1px 0 var(--good-line);
+}
+.в-вычитка__почему { font-size: var(--t-sm); color: var(--ink-3); }
+.в-вычитка textarea { width: 100%; box-sizing: border-box; min-width: 0; }
+.в-вычитка-итог { background: var(--accent-bg-2); }
+/* Дорогая проверка: цена красным под кнопкой, а не полосой сверху.
+   Дешёвая не пишется вовсе — место дороже центов. */
+.в-проверка { display: flex; flex-direction: column; align-items: stretch; gap: 2px; }
+.в-цена-дорого { color: var(--bad-ink); font-size: var(--t-xs); text-align: center; }
+/*
+  Кнопки в шапке списка стоят столбцами друг под другом («Check
+  again» над «Dismiss all», «Reset text edits» над «Accept all») —
+  ширина у них одна, иначе края пляшут. Шапка и строка «AI fixes» —
+  одна сетка, ряды её — подсетки: столбец шириной в самую длинную
+  подпись, и обе кнопки тянутся на всю его ширину. Жёсткое число
+  ширины не годилось: на экране в 1440 точек кнопки уезжали за край.
+  У правки — своя одна ширина на три.
+*/
+.в-шапка-фраз { display: grid; grid-template-columns: minmax(min-content, 1fr) auto auto; }
+.в-шапка-ряд {
+  grid-column: 1 / -1; display: grid; grid-template-columns: subgrid;
+  column-gap: var(--sp-2); align-items: center;
+}
+.в-столбцом { white-space: nowrap; text-align: center; }
+.в-вычитка .в-ряд .vc-btn { min-width: 6.2em; white-space: nowrap; text-align: center; }
 
 /* ── Ссылка, которая выглядит кнопкой ───────────────────────────────── */
 /*
