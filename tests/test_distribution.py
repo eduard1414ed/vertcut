@@ -9,6 +9,7 @@
 
 from __future__ import annotations
 
+import re
 import shutil
 import subprocess
 import sys
@@ -461,6 +462,30 @@ def test_суммы_с_маком_не_трогают_виндовую(tmp_path)
     assert вышло == f"{сумма}  Vertcut-mac.zip\naaaa  Vertcut-windows.zip\n"
     # Второй прогон той же метки: строка мака заменяется, не дописывается.
     assert модуль.суммы_с_маком("bbbb  Vertcut-mac.zip\n" + старые, архив) == вышло
+
+
+def test_выпуск_мака_зовёт_gh_с_репозиторием():
+    """У рабочей копии автора два remote, и `gh` без `--repo` отказал
+    на выпуске 0.2.1. Каждый вызов `gh` в скрипте несёт `--repo`,
+    а имя берётся из `origin` в любом из видов адреса."""
+    import importlib.util
+
+    путь = УСТАНОВКА / "release-mac.py"
+    спец = importlib.util.spec_from_file_location("выпуск_мака_репо", путь)
+    модуль = importlib.util.module_from_spec(спец)
+    спец.loader.exec_module(модуль)
+    for адрес in ("https://github.com/eduard1414ed/vertcut.git",
+                  "https://github.com/eduard1414ed/vertcut",
+                  "git@github.com:eduard1414ed/vertcut.git"):
+        assert модуль.имя_репозитория(адрес) == "eduard1414ed/vertcut", адрес
+    with pytest.raises(SystemExit):
+        модуль.имя_репозитория("https://gitlab.com/someone/vertcut.git")
+
+    текст = путь.read_text(encoding="utf-8")
+    вызовы = re.findall(r'\["gh", "release", "(\w+)"[^\]]*\]', текст)
+    assert sorted(вызовы) == ["download", "upload", "view"]
+    for вызов in re.findall(r'\["gh", "release",[^\]]*\]', текст):
+        assert '"--repo"' in вызов, вызов
 
 
 def test_github_не_кладёт_маковский_архив_в_черновик():
