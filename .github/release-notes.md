@@ -5,15 +5,13 @@ own computer, in your browser.
 
 ## What's new in @VERSION@
 
-- **Check with AI** on the Subtitles screen. Speech recognition gets
-  names, titles and word endings wrong; the AI reads the subtitles of
-  one clip and suggests fixes as a list. You accept, edit or dismiss
-  each one yourself — nothing changes until you do. Needs an API key;
-  the price is shown only when a check would cost more than your limit.
-- **Clips without subtitles.** Each clip has a "show subtitles in the
-  clip" switch on its Subtitles screen. In Settings you can make new
-  videos export without subtitles by default; videos you have already
-  analyzed don't change.
+- **macOS: Vertcut opens with one click.** The Mac app is now signed
+  with its author's Apple Developer ID and checked by Apple
+  (notarized). The first time, macOS only asks whether to open an app
+  downloaded from the internet — click **Open**. No more trips to
+  Privacy & Security, and no more backup script in the archive.
+- Nothing changes inside Vertcut itself: your analyses, clips and
+  settings stay as they are.
 
 ## How to install
 
