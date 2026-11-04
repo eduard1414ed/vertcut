@@ -52,8 +52,8 @@ disk), upload clips anywhere, or run on a phone.
 ## Install
 
 There are three ways. The first is the easiest if you have an AI agent;
-the third needs no terminal at all, but your system will warn you about
-it.
+the third needs no terminal at all (on Windows, the system will warn
+you about it the first time).
 
 ### 1. Ask your AI agent to install it
 
@@ -68,8 +68,8 @@ The agent follows [INSTALL.md](INSTALL.md): it checks what you already
 have, asks before installing anything system-wide (like Python or
 ffmpeg), sets Vertcut up in its own folder, checks that it works and
 tells you how to start it. On a Mac it can also put a Vertcut icon on
-your Desktop. An icon built on your own Mac opens without the security
-warnings that a downloaded app gets.
+your Desktop. An icon built on your own Mac opens without asking: macOS
+only asks about apps downloaded from the internet.
 
 ### 2. Install it yourself in a terminal
 
@@ -159,32 +159,20 @@ and the speech model, about 800 MB in all) and shows the progress in
 your browser. When it's done, a Vertcut icon appears on your Desktop
 (on Windows, a Vertcut folder with the app in it).
 
-**Honestly: Vertcut isn't signed, and your system will warn you the
-first time.** Signing costs money every year (Apple charges $99 a year;
-Windows needs a paid certificate), and Vertcut is free. The warning
-says the system couldn't check who made the app. It doesn't mean a
-virus was found. You confirm once, and after that it opens like any
-other app.
+**On macOS,** Vertcut is signed and checked by Apple (notarized). The
+first time, macOS asks whether you want to open an app downloaded from
+the internet. Click **Open**, and it won't ask again.
 
-**On macOS:**
+If macOS says **"Vertcut" Not Opened** instead (archives released
+before Vertcut was notarized do), click **Done**, then right away open
+**System Settings → Privacy & Security**, scroll down and click **Open
+Anyway** next to the line about Vertcut.
 
-1. Double-click `Vertcut`. macOS says **"Vertcut" Not Opened**: Apple
-   couldn't check it for malware. Click **Done**.
-2. Right away, open **System Settings → Privacy & Security** and scroll
-   down. There's a line about Vertcut with an **Open Anyway** button.
-   Click it and confirm with your password or Touch ID.
-3. The button stays there for about an hour after you tried to open
-   Vertcut. If it's gone, double-click `Vertcut` again first. On macOS
-   12 and older it's **System Preferences → Security & Privacy →
-   General**.
-4. Still no button? Download the archive again and unzip it with a
-   double-click, not with another app. If that doesn't help either,
-   the archive has a backup way: a file called
-   `If-Vertcut-does-not-open.sh` that removes the "downloaded from the
-   internet" mark from Vertcut and does nothing else. The `README.html`
-   next to it says how to run it.
-
-**On Windows:**
+**On Windows, Vertcut isn't signed,** and Windows will warn you the
+first time. A Windows certificate costs money every year, and Vertcut
+is free. The warning says Windows couldn't check who made the app. It
+doesn't mean a virus was found. You confirm once, and after that it
+opens like any other app.
 
 1. Right-click the archive → **Extract All**.
 2. Open the `Vertcut` folder and double-click `Vertcut` (that's

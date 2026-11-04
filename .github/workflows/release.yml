@@ -5,7 +5,8 @@
 #   2. собирает раздачу Windows на Windows и раздачу macOS на macOS —
 #      `install/build-release.py`, тот же, что и руками; проверка
 #      распаковкой (и подпись у маковской) входит в сборку;
-#   3. считает SHA-256 и кладёт оба архива и SHA256SUMS.txt в черновик;
+#   3. считает SHA-256 и кладёт ВИНДОВЫЙ архив и SHA256SUMS.txt
+#      в черновик. Маковский сюда не едет — см. ниже;
 #   4. проверяет виндовую раздачу так, как её получит человек: СКАЧИВАЕТ
 #      из черновика и проходит установку (задание `install` из
 #      `windows.yml`, позванное с меткой).
@@ -13,12 +14,16 @@
 # ЧЕГО НЕ ДЕЛАЕТ. Не публикует. Черновик видят только те, у кого есть
 # право писать в репозиторий; опубликовать его — кнопка автора.
 #
-# ПОЧЕМУ МАК СОБИРАЕТСЯ ЗДЕСЬ, А НЕ У АВТОРА (решение 27-й сессии):
-# собранное здесь — ровно код под меткой, а не рабочая папка, куда
-# может попасть незакоммиченное; обе раздачи и суммы — одним прогоном;
-# своя подпись (`codesign -s -`) не требует сертификата и делается
-# на любой машине macOS. Цена — минуты macOS, в открытом репозитории
-# бесплатные.
+# МАКОВСКИЙ АРХИВ КЛАДЁТ АВТОР (решение 31-й сессии). Раздача macOS
+# заверена Apple и подписана сертификатом автора, а сертификат лежит
+# только у него на Mac — GitHub ему не отдан (почему — docs/decisions.md,
+# «Заверение у Apple»). Поэтому после этого прогона автор зовёт у себя
+#     python install/release-mac.py <метка>
+# — тот собирает код ровно под меткой (не рабочую папку), заверяет
+# и докладывает архив и его сумму в этот же черновик. Здесь мак
+# по-прежнему собирается — со своей подписью, как ПРОВЕРКА, что код
+# под меткой собирается и переживает распаковку, — но в черновик
+# не кладётся: архив без заверения выглядит ровно как заверенный.
 
 name: Release
 
@@ -116,7 +121,7 @@ jobs:
       - name: Суммы
         working-directory: out
         run: |
-          sha256sum Vertcut-mac.zip Vertcut-windows.zip > SHA256SUMS.txt
+          sha256sum Vertcut-windows.zip > SHA256SUMS.txt
           cat SHA256SUMS.txt
       - name: Текст выпуска
         run: |
@@ -129,7 +134,7 @@ jobs:
       # который уже опубликован, не трогается никогда.
       - name: Положить в черновик
         run: |
-          files="out/Vertcut-mac.zip out/Vertcut-windows.zip out/SHA256SUMS.txt"
+          files="out/Vertcut-windows.zip out/SHA256SUMS.txt"
           if gh release view "$TAG" --json isDraft --jq .isDraft > state.txt 2>/dev/null; then
             if [ "$(cat state.txt)" != true ]; then
               echo "release $TAG is already published — not touching it"; exit 1
@@ -144,6 +149,7 @@ jobs:
               --title "$title" --notes-file notes.md
           fi
           gh release view "$TAG" --json isDraft,assets --jq '{isDraft, assets: [.assets[].name]}'
+          echo "::notice::No Mac archive in the draft yet — on the author's Mac: python install/release-mac.py $TAG"
 
   # Как получит человек: скачать из черновика и поставить.
   verify-windows:

@@ -313,13 +313,14 @@
 | Загрузки | **Downloads** | |
 | распакованная папка | **the unzipped folder** | |
 | файл поставки (`.whl`) | **Vertcut package** | только в журнале |
-| запасная дорога на macOS | **If-Vertcut-does-not-open.sh** | имя файла в раздаче; в README и в его примечаниях — *the backup way*; файл английский целиком, с примечаниями |
 | опись лицензий (`LICENSES.md`) | **What Vertcut is made of, and under which licenses** | заголовок файла в папке `Licenses/`; *copyleft* — «заразная», *weak copyleft* — «слабо заразная» |
 | раздавать (ffmpeg) | **hand out** | «we do NOT hand it out» |
 | метка «скачано из интернета» | **the "downloaded from the internet" mark** | |
 | Терминал | **Terminal** | открывается **⌘ Space** → *Terminal* → **Return**: Launchpad в macOS 26 нет |
 | macOS: Системные настройки → Конфиденциальность и безопасность → Всё равно открыть | **System Settings → Privacy & Security → Open Anyway** | macOS 12 и старше: **System Preferences → Security & Privacy → General → Open Anyway** |
 | macOS: окно отказа | **"Vertcut" Not Opened**, кнопки **Done / Move to Trash** | macOS 15 и новее |
+| заверено Apple (нотаризация) | **checked by Apple (notarized)** | с 31-й сессии про маковскую раздачу; *notarized* — только в скобках, человеку хватает первого |
+| macOS: вопрос при первом открытии заверенного | **an app downloaded from the internet**, кнопка **Open** | своё окно в README не цитируем дословно: текст его меняется от версии к версии macOS; на другом Mac открылось двойным щелчком (31-я) |
 | Windows: окно SmartScreen | **Windows protected your PC**, **More info → Run anyway** | |
 | Windows: Извлечь все | **Extract All** | |
 | Windows: снять блокировку архива | **Properties → Unblock** | |

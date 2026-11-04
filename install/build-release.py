@@ -13,7 +13,6 @@
     Vertcut/                     macOS            Windows
       README.html                что это и как запустить
       Vertcut.app / Vertcut.exe  то, что нажимают
-      If-Vertcut-does-not-open.sh  запасная дорога  —
       install/                   —                установка и поставка
       Licenses/                  лицензии: своя и чужие
 
@@ -69,6 +68,37 @@ MIT велит носить с собой имя и отказ от гарант
 лишнего файла внутри, от упаковщика, который не хранит прав и ссылок,
 — а сломанная подпись для системы то же самое, что её отсутствие:
 «программа повреждена» и Корзина.
+
+## Заверение у Apple: `--notarize`
+
+    python install/build-release.py --notarize
+
+С 31-й сессии у автора есть сертификат «Developer ID Application»,
+и маковская раздача может уехать ЗАВЕРЕННОЙ: человек дважды щёлкает,
+система спрашивает «Открыть?» — и всё, без захода в настройки. Без
+ключа сборка та же, что прежде, со своей подписью: так собирают
+сборочная машина и всякий, у кого сертификата нет.
+
+Порядок, и каждый шаг в нём не переставляется:
+
+1. иконка подписывается сертификатом автора (`build-launcher.py`);
+2. ОДНА иконка уезжает в Apple (`notarytool submit --wait`), и ответ
+   ждётся тут же — пара минут;
+3. отметка о заверении вкладывается в иконку (`stapler staple`).
+   Без неё система спросила бы Apple по сети при первом запуске,
+   а без сети — отказала бы. Отметка подписи не ломает: она для того
+   и придумана;
+4. только ПОТОМ собирается архив раздачи — иначе в архиве иконка
+   без отметки.
+
+**Пароль для отправки в Apple не лежит ни в проекте, ни в команде.**
+Он в связке ключей под именем `vertcut-notary` (заводится один раз:
+`xcrun notarytool store-credentials vertcut-notary …`), и сборка
+называет только это имя.
+
+**Проверка распаковкой с `--notarize` строже:** у распакованного
+спрашиваются `stapler validate` и `spctl` — система должна сказать
+«Notarized Developer ID». Заверили, но не доехало — сборка красная.
 """
 
 from __future__ import annotations
@@ -90,16 +120,6 @@ sys.path.insert(0, str(ЗДЕСЬ))
 # README репозитория и страница помощи — разъедутся, и человек пойдёт
 # искать то, чего нет.
 АДРЕС_ПРОЕКТА = "https://github.com/eduard1414ed/vertcut"
-
-# Как файл спасения зовётся в раздаче.
-#
-# **Словами беды, а не работы**: человек ищет файл именно ими. До 23-й
-# сессии это были русские слова латиницей (`Esli-ne-otkryvaetsya.sh`) —
-# русское имя не переживает чужого распаковщика. Теперь слова английские,
-# как всё, что видит человек, и латиница у них своя. Без апострофа
-# («won't»): кавычка в имени файла ломает его перетаскивание в Терминал
-# у тех, кто потом допишет что-то руками.
-СПАСЕНИЕ = "If-Vertcut-does-not-open.sh"
 
 # Лицензии. Своя — MIT, чужие — списком с версиями.
 ЛИЦЕНЗИИ = ["LICENSE", "LICENSES.md"]
@@ -125,8 +145,11 @@ def сборщик_иконки():
     return модуль
 
 
-def собрать(куда: Path, система: str) -> Path:
-    """Папка раздачи. Возвращает её путь."""
+def собрать(куда: Path, система: str, заверить: bool = False) -> Path:
+    """Папка раздачи. Возвращает её путь.
+
+    `заверить` — подписать иконку сертификатом автора и заверить
+    у Apple (только macOS); порядок — наверху этого файла."""
     сборщик = сборщик_иконки()
     раздача = куда / "Vertcut"
     shutil.rmtree(раздача, ignore_errors=True)
@@ -138,12 +161,11 @@ def собрать(куда: Path, система: str) -> Path:
         раздача = сборщик.виндовый(куда)
     else:
         раздача.mkdir(parents=True)
-        сборщик.маковский(раздача)
-        # Запасная дорога — только на macOS: она снимает метку
-        # «скачано из интернета», а такой метки в Windows нет вовсе.
-        спасение = раздача / СПАСЕНИЕ
-        shutil.copy2(ЗДЕСЬ / "unquarantine.sh", спасение)
-        спасение.chmod(0o755)
+        if заверить:
+            приложение = сборщик.маковский(раздача, сборщик.сертификат_автора())
+            заверить_у_apple(приложение)
+        else:
+            сборщик.маковский(раздача)
 
     (раздача / "README.html").write_text(страница(система), encoding="utf-8")
 
@@ -152,6 +174,66 @@ def собрать(куда: Path, система: str) -> Path:
     for имя in ЛИЦЕНЗИИ:
         shutil.copy2(КОРЕНЬ / имя, лицензии / имя)
     return раздача
+
+
+# Под каким именем в связке ключей лежит пароль для отправки в Apple.
+# Одним местом: его называют сборка и подсказка, как его завести.
+ПРОФИЛЬ_ЗАВЕРЕНИЯ = "vertcut-notary"
+
+
+def заверить_у_apple(приложение: Path) -> None:
+    """Отправить иконку в Apple, дождаться ответа, вложить отметку.
+
+    Apple принимает архив, а не папку, — поэтому иконка пакуется
+    отдельно, во времянку рядом с собой, и времянка потом уходит.
+    **Отказ Apple — отказ сборки, с их же объяснением:** без него
+    не понять, что чинить, а раздача без заверения выглядела бы ровно
+    как заверенная.
+    """
+    import json
+
+    врем = Path(tempfile.mkdtemp(prefix="vertcut-notary-",
+                                 dir=приложение.parent))
+    try:
+        посылка = врем / "Vertcut.zip"
+        subprocess.run(["ditto", "-c", "-k", "--sequesterRsrc", "--keepParent",
+                        str(приложение), str(посылка)], check=True)
+        print("notarizing: sent to Apple, waiting for the answer "
+              "(usually a few minutes)…", flush=True)
+        вышло = subprocess.run(
+            ["xcrun", "notarytool", "submit", str(посылка),
+             "--keychain-profile", ПРОФИЛЬ_ЗАВЕРЕНИЯ, "--wait",
+             "--output-format", "json"],
+            capture_output=True, text=True)
+    finally:
+        shutil.rmtree(врем, ignore_errors=True)
+    try:
+        ответ = json.loads(вышло.stdout)
+    except ValueError:
+        ответ = {}
+    if ответ.get("status") != "Accepted":
+        if not ответ:
+            raise SystemExit(
+                "Apple's notary service couldn't be asked:\n"
+                + (вышло.stderr or вышло.stdout).strip()
+                + f"\nIf the password isn't stored yet: xcrun notarytool "
+                f"store-credentials {ПРОФИЛЬ_ЗАВЕРЕНИЯ} --apple-id <email> "
+                "--team-id <team id>")
+        журнал = subprocess.run(
+            ["xcrun", "notarytool", "log", ответ.get("id", ""),
+             "--keychain-profile", ПРОФИЛЬ_ЗАВЕРЕНИЯ],
+            capture_output=True, text=True)
+        raise SystemExit(
+            f"Apple didn't notarize the app: {ответ.get('status')} — "
+            f"{ответ.get('message', '')}\n{журнал.stdout.strip()}")
+    print(f"notarizing: accepted ({ответ.get('id')})", flush=True)
+    отметка = subprocess.run(["xcrun", "stapler", "staple", str(приложение)],
+                             capture_output=True, text=True)
+    if отметка.returncode != 0:
+        raise SystemExit(
+            "Apple notarized the app, but the ticket couldn't be attached "
+            "— without it a Mac offline would refuse to open it:\n"
+            + (отметка.stderr or отметка.stdout).strip())
 
 
 def упаковать(раздача: Path, система: str) -> Path:
@@ -183,7 +265,7 @@ def имена_в_архиве(архив: Path) -> list[str]:
         return [и.orig_filename for и in z.infolist()]
 
 
-def проверить(архив: Path, система: str) -> list[str]:
+def проверить(архив: Path, система: str, заверено: bool = False) -> list[str]:
     """Распаковать и посмотреть, живо ли то, что нельзя потерять."""
     беды = []
 
@@ -217,6 +299,8 @@ def проверить(архив: Path, система: str) -> list[str]:
             беды += виндовые_беды(корень)
         else:
             беды += маковские_беды(корень)
+            if заверено:
+                беды += беды_заверения(корень / "Vertcut.app")
     finally:
         shutil.rmtree(врем, ignore_errors=True)
     return беды
@@ -241,12 +325,6 @@ def маковские_беды(корень: Path) -> list[str]:
     if not list((корень / "Vertcut.app" / "Contents"
                  / "Resources").glob("*.whl")):
         беды.append("no Vertcut package — nothing to install")
-    спасение = корень / СПАСЕНИЕ
-    if not спасение.exists():
-        беды.append("no backup way — someone macOS won't let in has "
-                    "nothing to help themselves with")
-    elif not спасение.stat().st_mode & 0o111:
-        беды.append("the backup way isn't executable")
     приложение = корень / "Vertcut.app"
     if приложение.exists():
         подпись = subprocess.run(
@@ -256,6 +334,27 @@ def маковские_беды(корень: Path) -> list[str]:
             беды.append(
                 "the signature didn't survive the archive — macOS will "
                 f"say the app is damaged: {подпись.stderr.strip()}")
+    return беды
+
+
+def беды_заверения(приложение: Path) -> list[str]:
+    """Доехало ли заверение до распакованного — глазами самой системы.
+
+    `spctl` отвечает ровно на тот вопрос, который система задаёт при
+    двойном щелчке; `stapler validate` — на месте ли отметка, без
+    которой машина вне сети откажет.
+    """
+    беды = []
+    отметка = subprocess.run(["xcrun", "stapler", "validate", str(приложение)],
+                             capture_output=True, text=True)
+    if отметка.returncode != 0:
+        беды.append("the notarization ticket didn't survive the archive — "
+                    "a Mac offline won't open the app")
+    допуск = subprocess.run(["spctl", "-a", "-t", "exec", "-vv", str(приложение)],
+                            capture_output=True, text=True)
+    ответ = (допуск.stdout + допуск.stderr).strip()
+    if допуск.returncode != 0 or "Notarized Developer ID" not in ответ:
+        беды.append(f"macOS doesn't see the app as notarized: {ответ}")
     return беды
 
 
@@ -336,11 +435,9 @@ def страница(система: str) -> str:
     """
     окна = система == "windows"
     return (ЧИТАТЬ.replace("@STEPS@", ШАГИ_WINDOWS if окна else ШАГИ_MAC)
-                  .replace("@RESCUE_BLOCK@", "" if окна else СПАСЕНИЕ_БЛОК)
                   .replace("@ADD@", ДОБАВИТЬ_WINDOWS if окна else ДОБАВИТЬ_MAC)
                   .replace("@INSIDE@", ВНУТРИ_WINDOWS if окна else ВНУТРИ_MAC)
                   .replace("@PLACES@", МЕСТА_WINDOWS if окна else МЕСТА_MAC)
-                  .replace("@RESCUE@", СПАСЕНИЕ)
                   .replace("@ADDRESS@", АДРЕС_ПРОЕКТА)
                   .replace("@VERSION@", версия()))
 
@@ -359,9 +456,12 @@ def страница(система: str) -> str:
 # вёл в никуда. Терминал открывается поиском — так он находится
 # на любой версии.
 #
-# **Кнопка «Open Anyway» живёт около часа** после попытки открыть
-# программу — так пишет Apple. Человек, который открыл настройки
-# назавтра, кнопки не найдёт; поэтому сказано «сразу после».
+# **С 31-й сессии маковская раздача заверена Apple**, и шаг 3 — один
+# вопрос «Открыть?», а не заход в настройки. Строка мелким — для
+# архива, собранного без заверения (своими руками, `build-release.py`
+# без `--notarize`): там система по-прежнему отказывает, и человеку
+# надо знать, куда идти. **Кнопка «Open Anyway» живёт около часа**
+# после попытки открыть — так пишет Apple; поэтому «сразу после».
 ШАГИ_MAC = """
 <div class="step"><div class="n">1</div><div>
   <b>Unzip the archive</b> — anywhere, Downloads is fine.
@@ -372,19 +472,14 @@ def страница(система: str) -> str:
 </div></div>
 
 <div class="step"><div class="n">3</div><div>
-  <b>The first time, macOS won't open it.</b> It says
-  <b>"Vertcut" Not Opened</b>: Apple couldn't check it for malware.
-  macOS says this about every app whose developer hasn't paid Apple
-  for that check — it isn't about a virus. Click <b>Done</b>.
-  Right after that, open <b>System Settings → Privacy &amp; Security</b>
-  and scroll down: there's a line about Vertcut and an
-  <b>Open Anyway</b> button. Click it and confirm with your password
-  or Touch ID. You only do this once.
-  <p class="quiet" style="margin:6px 0 0">The button stays there for
-  about an hour after you tried to open Vertcut — if it's gone,
-  double-click <code>Vertcut</code> again first. Still no button? Download the archive again and unzip
-  it with a double-click, not with another app. If that doesn't help
-  either, there's a backup way below.</p>
+  <b>The first time, macOS asks if you want to open it</b> — an app
+  downloaded from the internet. Click <b>Open</b>. Vertcut is checked
+  by Apple, and macOS only asks this once.
+  <p class="quiet" style="margin:6px 0 0">If instead macOS says
+  <b>"Vertcut" Not Opened</b> (a copy that wasn't checked by Apple
+  says that), click <b>Done</b>, then right away open <b>System
+  Settings → Privacy &amp; Security</b>, scroll down and click
+  <b>Open Anyway</b> next to the line about Vertcut.</p>
 </div></div>
 
 <div class="step"><div class="n">4</div><div>
@@ -467,37 +562,6 @@ a tab in your browser.
 </div>
 """
 
-# Терминал открывается поиском, а не через Launchpad: в macOS 26 его нет.
-# Клавиша на маковской клавиатуре подписана «return», а не «Enter».
-СПАСЕНИЕ_БЛОК = """
-<h2>The backup way, if macOS still won't open it</h2>
-
-<p>Next to this page there's a file called <code>@RESCUE@</code>.
-It removes the "downloaded from the internet" mark from Vertcut — the
-mark that makes macOS ask for permission. It does nothing else: it
-doesn't install or download anything.</p>
-
-<div class="card">
-<p style="margin:0 0 8px"><b>What to do:</b></p>
-<ol style="margin:0; padding-left:20px">
-  <li>Open <b>Terminal</b>: press <b>⌘ Space</b>, type
-      <code>Terminal</code> and press <b>Return</b>.</li>
-  <li>Type <code>bash</code> and a space after it.</li>
-  <li><b>Drag</b> the file <code>@RESCUE@</code> into the Terminal
-      window — its path is filled in for you.</li>
-  <li>Press <b>Return</b>. It answers "Done."</li>
-</ol>
-<p class="quiet" style="margin:12px 0 0">Then close Terminal and open
-<code>Vertcut</code> with a double-click, as usual. You won't need
-this file again.</p>
-</div>
-
-<p class="quiet">This file doesn't run with a double-click, and that's
-not an oversight: macOS checks everything you open from Finder before
-it can take its first step. It only works when you run it yourself,
-from Terminal.</p>
-"""
-
 # «Choose file» есть только на macOS: на Windows системного диалога
 # выбора нет (TODO.md), и обещать его там нельзя.
 ДОБАВИТЬ_MAC = """<b>Add a video</b> — drag the file into the browser
@@ -508,8 +572,6 @@ from Terminal.</p>
 
 ВНУТРИ_MAC = """<ul>
   <li><code>Vertcut</code> — the app you open.</li>
-  <li><code>@RESCUE@</code> — the backup way described above. Most
-      people won't need it.</li>
   <li><code>Licenses/</code> — the license of Vertcut and of everything
       it's built from.</li>
 </ul>"""
@@ -605,7 +667,7 @@ finds the cuts and frames each shot around the speaker's face.</p>
 
 <h2>How to start</h2>
 @STEPS@
-@RESCUE_BLOCK@
+
 <h2>Then, in Vertcut</h2>
 <ul>
   <li>@ADD@</li>
@@ -683,6 +745,9 @@ def main(аргументы=None) -> int:
                         help="where to put the archive; the Desktop by default")
     разбор.add_argument("--system", dest="система", choices=["darwin", "windows"],
                         default=None, help="this system by default")
+    разбор.add_argument("--notarize", dest="заверить", action="store_true",
+                        help="macOS: sign with the Developer ID certificate "
+                        "and have Apple notarize the app")
     это = разбор.parse_args(аргументы)
 
     своя = "windows" if sys.platform.startswith("win") else (
@@ -692,6 +757,8 @@ def main(аргументы=None) -> int:
         raise SystemExit(
             "The release is built for macOS and Windows. On Linux, install "
             "Vertcut from the repository — the README says how.")
+    if это.заверить and (система != "darwin" or своя != "darwin"):
+        raise SystemExit("--notarize is for the Mac release, built on a Mac.")
     if система != своя:
         print("WARNING: building for another system. It can't be run and\n"
               "checked here — and a release nobody has run is worse than\n"
@@ -700,9 +767,9 @@ def main(аргументы=None) -> int:
     куда = это.куда or (Path.home() / "Desktop")
     куда.mkdir(parents=True, exist_ok=True)
 
-    раздача = собрать(куда, система)
+    раздача = собрать(куда, система, это.заверить)
     архив = упаковать(раздача, система)
-    беды = проверить(архив, система)
+    беды = проверить(архив, система, это.заверить)
     # Папка была нужна, чтобы собрать архив; человеку едет архив.
     shutil.rmtree(раздача, ignore_errors=True)
 
@@ -715,7 +782,11 @@ def main(аргументы=None) -> int:
             print(f"  · {беда}")
         return 1
     print(f"unzip check: names are plain Latin, everything is in place"
-          f"{', signature intact' if система == 'darwin' else ''}")
+          f"{', signature intact' if система == 'darwin' else ''}"
+          f"{', notarized' if это.заверить else ''}")
+    if система == "darwin" and not это.заверить:
+        print("NOT NOTARIZED: macOS will send people to Settings to allow it. "
+              "For a release: --notarize")
     return 0
 
 
