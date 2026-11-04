@@ -33,20 +33,25 @@ There are three ways, described in the
 The first start downloads what Vertcut needs (Python, ffmpeg and the
 speech model, about 800 MB) and shows the progress in your browser.
 
-## Vertcut isn't signed
+## Signed on macOS, not on Windows
 
-Signing costs money every year, and Vertcut is free. So the first time,
-macOS says it couldn't check Vertcut for malware, and Windows says it
-protected your PC. That doesn't mean a virus was found — it means your
-system can't confirm who made the app.
+**macOS:** Vertcut is signed with its author's Apple Developer ID and
+notarized by Apple. The first time, macOS only asks whether to open an
+app downloaded from the internet — click **Open**.
+
+**Windows:** Vertcut isn't signed — a Windows certificate costs money
+every year, and Vertcut is free. So the first time, Windows says it
+protected your PC. That doesn't mean a virus was found — it means
+Windows can't confirm who made the app.
 [What to click](https://github.com/eduard1414ed/vertcut#3-download-the-installer).
 
-What this means for you: you're trusting this page rather than Apple or
-Microsoft. Both archives were built by GitHub's build machines from the
-source code at this release's tag, and the build logs are public. To
-check that your download is exactly what they built:
+The Windows archive was built by GitHub's build machines from the
+source code at this release's tag, and the build logs are public. The
+macOS archive was built from the same tag on the author's Mac, because
+that's where the signing certificate lives, and then checked by Apple.
+To check that your download is exactly what was uploaded:
 
-    macOS:    shasum -a 256 -c SHA256SUMS.txt
+    macOS:    shasum -a 256 -c SHA256SUMS.txt --ignore-missing
     Windows:  Get-FileHash Vertcut-windows.zip   (compare with SHA256SUMS.txt)
 
 ## What's tested

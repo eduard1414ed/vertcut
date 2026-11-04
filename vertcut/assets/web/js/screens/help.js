@@ -84,15 +84,18 @@ const БЕДЫ = [
     ],
   },
   {
-    вижу: 'The first time, the system said the app is damaged',
+    вижу: 'The first time, the system wouldn\'t open the app',
     делать: [
-      // Не «куплено у Apple», а подпись: система говорит так про всё,
-      // что не подписано платным ключом разработчика.
-      'It isn\'t. The system says this about any app that isn\'t signed ' +
-      'with a paid Apple developer account ($99 a year).',
-      'macOS: System Settings → Privacy & Security → at the bottom, ' +
-      '“Open Anyway”.',
-      'Windows: “More info” → “Run anyway”.',
+      // С 31-й сессии маковская раздача заверена Apple: система лишь
+      // спрашивает «Open?». Отказ остаётся у архивов, выпущенных до
+      // заверения, и у собранных без него — им и сказано, куда идти. Windows
+      // по-прежнему без подписи издателя.
+      'macOS: Vertcut is checked by Apple, and macOS only asks once ' +
+      'whether to open it — click “Open”. If it says “Vertcut” Not ' +
+      'Opened instead (an older download does), go to System Settings → ' +
+      'Privacy & Security → at the bottom, “Open Anyway”.',
+      'Windows: Vertcut isn\'t signed there, and the blue window isn\'t ' +
+      'about a virus: “More info” → “Run anyway”.',
       'You only do this once.',
     ],
   },

@@ -318,19 +318,75 @@ def test_иконка_подписывается_своей_подписью():
     терминала. Живьём это и случилось: архив уехал на чужой макбук,
     и человек не смог открыть его вовсе.
 
-    Своя подпись бесплатна и ставится одной командой; заверение Apple
-    стоит денег и не ставится вовсе — решение авторское.
+    Своя подпись бесплатна и ставится одной командой — так собирает
+    всякий, у кого нет сертификата. Подпись автора (с 31-й сессии)
+    ставится только с «укреплённым запуском» и отметкой времени:
+    без них Apple заверять отказывает.
     """
     текст = (УСТАНОВКА / "build-launcher.py").read_text(encoding="utf-8")
     assert '"codesign", "--force", "--sign", "-"' in текст, (
         "свёрток собирается без своей подписи — чужая машина скажет, "
         "что он повреждён")
-    assert "подписать(приложение)" in текст, "подпись не зовётся из сборки"
+    assert '"--options", "runtime", "--timestamp"' in текст, (
+        "подпись автора без укреплённого запуска — Apple не заверит")
+    assert "подписать(приложение, автор)" in текст, "подпись не зовётся из сборки"
     # Последним делом: подпись запечатывает всё, что внутри, и всякая
     # правка после неё ломает её молча.
-    сборка = текст[текст.index("def маковский"):текст.index("def подписать")]
+    сборка = текст[текст.index("def маковский"):текст.index("# Каким сертификатом")]
     assert сборка.rstrip().endswith("return приложение")
-    assert сборка.index("подписать(приложение)") > сборка.index("symlink_to")
+    assert сборка.index("подписать(приложение") > сборка.index("symlink_to")
+
+
+def test_сертификат_автора_один_или_отказ(monkeypatch):
+    """Чужим сертификатом не подписываем: его имя увидит в окне каждый,
+    кто откроет программу. Сертификат для своей машины («Apple
+    Development») не годится — Apple с ним не заверит."""
+    модуль = сборщик_иконки_модуль()
+
+    def связка(*строки):
+        вывод = "".join(f'  {н}) ABC "{с}"\n' for н, с in enumerate(строки, 1))
+        monkeypatch.setattr(модуль.subprocess, "run", lambda *а, **к:
+                            subprocess.CompletedProcess(а, 0, вывод, ""))
+
+    связка("Apple Development: a@b.c (X)",
+           "Developer ID Application: Автор (TEAM)")
+    assert модуль.сертификат_автора() == "Developer ID Application: Автор (TEAM)"
+
+    связка("Apple Development: a@b.c (X)")
+    with pytest.raises(SystemExit, match="No \"Developer ID Application\""):
+        модуль.сертификат_автора()
+
+    связка("Developer ID Application: Один (A)",
+           "Developer ID Application: Другой (B)")
+    with pytest.raises(SystemExit, match="Several"):
+        модуль.сертификат_автора()
+
+
+def test_отказ_apple_останавливает_сборку(tmp_path, monkeypatch):
+    """Не заверили — сборка встаёт с объяснением Apple, а не уезжает
+    раздачей, которая выглядит заверенной и пускает в настройки."""
+    модуль = сборщик_раздачи()
+    приложение = tmp_path / "Vertcut.app"
+    приложение.mkdir()
+    позвали = []
+
+    def запуск(команда, *а, **к):
+        позвали.append(команда[:3])
+        if команда[:3] == ["xcrun", "notarytool", "submit"]:
+            return subprocess.CompletedProcess(
+                команда, 1, '{"id": "42", "status": "Invalid", '
+                '"message": "Processing complete"}', "")
+        if команда[:3] == ["xcrun", "notarytool", "log"]:
+            return subprocess.CompletedProcess(
+                команда, 0, "The signature does not include a secure timestamp.", "")
+        return subprocess.CompletedProcess(команда, 0, "", "")
+
+    monkeypatch.setattr(модуль.subprocess, "run", запуск)
+    with pytest.raises(SystemExit, match="secure timestamp"):
+        модуль.заверить_у_apple(приложение)
+    assert ["xcrun", "stapler", "staple"] not in позвали, (
+        "отметку вложили в незаверенное")
+    assert not list(tmp_path.glob("vertcut-notary-*")), "времянка осталась"
 
 
 @pytest.mark.skipif(sys.platform != "darwin", reason="codesign есть на macOS")
@@ -362,9 +418,6 @@ def test_проверка_раздачи_краснеет_без_подписи(
     раздача = tmp_path / "Vertcut"
     приложение = подставная_иконка(раздача)
     (раздача / "README.html").write_text("<h1>", encoding="utf-8")
-    спасение = раздача / модуль.СПАСЕНИЕ
-    shutil.copy2(УСТАНОВКА / "unquarantine.sh", спасение)
-    спасение.chmod(0o755)
     (приложение / "Contents" / "Resources"
      / "vertcut-0.0.0-py3-none-any.whl").write_text("", encoding="utf-8")
     for имя in ("installer.py", "constraints.txt"):
@@ -386,67 +439,37 @@ def test_проверка_раздачи_краснеет_без_подписи(
     assert модуль.проверить(архив, "darwin") == []
 
 
-# ─── запасная дорога ─────────────────────────────────────────────────
+# ─── маковский выпуск у автора ───────────────────────────────────────
 
-def test_запасная_дорога_не_иконка_и_ничего_не_ставит():
-    """Замер, а не осторожность: помеченный «скачано» файл система
-    не пускает двойным щелчком (`spctl -a -t open` — отказ), а из рук
-    человека тот же файл идёт без единого вопроса. Поэтому дорога
-    в обход не может быть ещё одной иконкой: её проверят раньше,
-    чем она сделает первый шаг.
+def test_суммы_с_маком_не_трогают_виндовую(tmp_path):
+    """Маковский архив кладёт в черновик автор (`release-mac.py`), а сумму
+    виндового считал GitHub: её строка обязана остаться как была,
+    а старая маковская — уйти, а не задвоиться."""
+    import hashlib
+    import importlib.util
 
-    И ставить она ничего не должна: установка идёт своей дорогой —
-    с показом хода в браузере и значком в конце, — а этот файл только
-    убирает то, что мешает по ней пойти. Второй дороги к тому же
-    самому не заводится.
-    """
-    текст = (УСТАНОВКА / "unquarantine.sh").read_text(encoding="utf-8")
-    assert "xattr -dr com.apple.quarantine" in текст
-    for чужое in ("install.sh", "installer.py", "curl", "python"):
-        assert чужое not in текст, (
-            f"запасная дорога взялась за чужую работу: {чужое}")
-    # bash 3.2 в macOS падает на русских именах переменных первой же
-    # строкой — то же правило, что у ярлыка и установки.
-    код = "\n".join(с for с in текст.splitlines()
-                    if not с.lstrip().startswith("#"))
-    assert not any("Ѐ" <= з <= "ӿ" for з in
-                   код.split("echo")[0]), "русские имена переменных"
-    # Не надеемся, а проверяем: прав на запись могло не быть.
-    assert "xattr -pr" in текст, "снятие метки никем не проверено"
+    спец = importlib.util.spec_from_file_location(
+        "выпуск_мака", УСТАНОВКА / "release-mac.py")
+    модуль = importlib.util.module_from_spec(спец)
+    спец.loader.exec_module(модуль)
+
+    архив = tmp_path / "Vertcut-mac.zip"
+    архив.write_bytes(b"mac")
+    старые = "aaaa  Vertcut-windows.zip\n"
+    вышло = модуль.суммы_с_маком(старые, архив)
+    сумма = hashlib.sha256(b"mac").hexdigest()
+    assert вышло == f"{сумма}  Vertcut-mac.zip\naaaa  Vertcut-windows.zip\n"
+    # Второй прогон той же метки: строка мака заменяется, не дописывается.
+    assert модуль.суммы_с_маком("bbbb  Vertcut-mac.zip\n" + старые, архив) == вышло
 
 
-@pytest.mark.skipif(sys.platform != "darwin", reason="метки бывают тут")
-def test_запасная_дорога_снимает_метку(tmp_path):
-    """Настоящая метка на настоящем свёртке — и её нет после."""
-    раздача = tmp_path / "Vertcut"
-    приложение = подставная_иконка(раздача)
-    спасение = раздача / сборщик_раздачи().СПАСЕНИЕ
-    shutil.copy2(УСТАНОВКА / "unquarantine.sh", спасение)
-    метка = "0081;00000000;Safari;"
-    subprocess.run(["xattr", "-w", "com.apple.quarantine", метка,
-                    str(приложение)], check=True)
-
-    вышло = subprocess.run(["bash", str(спасение)],
-                           capture_output=True, text=True)
-
-    assert вышло.returncode == 0, вышло.stdout + вышло.stderr
-    осталось = subprocess.run(["xattr", str(приложение)],
-                              capture_output=True, text=True).stdout
-    assert "quarantine" not in осталось, "метка осталась на месте"
-    assert "Done." in вышло.stdout
-
-
-def test_запасная_дорога_названа_одним_именем():
-    """Имя печатает README и кладёт сборка — разъедутся, и человек
-    станет искать файл, которого нет."""
-    модуль = сборщик_раздачи()
-    assert модуль.СПАСЕНИЕ in модуль.страница("darwin"), (
-        "README зовёт файл не тем именем, каким его кладёт сборка")
-    assert модуль.СПАСЕНИЕ.isascii(), (
-        "русское имя не переживает чужого распаковщика, а архив "
-        "пересылают чем попало")
-    assert модуль.СПАСЕНИЕ in (КОРЕНЬ / "README.md").read_text(
+def test_github_не_кладёт_маковский_архив_в_черновик():
+    """Архив со своей подписью в черновике выглядит ровно как заверенный
+    и уехал бы к людям с заходом в настройки. Его место пустует, пока
+    автор не положит заверенный."""
+    текст = (КОРЕНЬ / ".github" / "workflows" / "release.yml").read_text(
         encoding="utf-8")
-    assert not модуль.СПАСЕНИЕ.endswith(".command"), (
-        "щелчок по `.command` обещает то, чего он не сделает: "
-        "запрет системы стоит ровно на щелчке")
+    кладёт = текст[текст.index("name: Положить в черновик"):]
+    кладёт = кладёт[:кладёт.index("\n\n")]
+    assert "Vertcut-mac.zip" not in кладёт
+    assert "Vertcut-windows.zip" in кладёт

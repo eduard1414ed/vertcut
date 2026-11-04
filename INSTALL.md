@@ -257,8 +257,8 @@ already exists and "isn't an icon built here", the person has Vertcut
 from the ready-made installer too — ask whether to move that one to
 the Trash or to build this one elsewhere with `--out <folder>`.
 
-The icon is made on this Mac, not downloaded, so macOS doesn't show
-the "can't be checked for malware" warning for it. It starts Vertcut
+The icon is made on this Mac, not downloaded, so macOS doesn't ask
+anything about it. It starts Vertcut
 from `~/vertcut-app` and never installs anything. A double-click opens
 a tab in the browser; if Vertcut is already running, it opens the same
 tab.

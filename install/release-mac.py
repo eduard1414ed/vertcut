@@ -1,0 +1,121 @@
+"""Положить заверенную маковскую раздачу в черновик выпуска.
+
+    python install/release-mac.py v0.2.1
+
+Зовёт её автор, на своём Mac, после того как `release.yml` сделал
+черновик выпуска по метке. Сборочная машина GitHub маковский архив
+по-прежнему собирает — как проверку, что код под меткой собирается, —
+но в черновик его НЕ кладёт: подписать именем автора она не может,
+сертификат лежит только у него (решение 31-й сессии; почему не отдать
+сертификат GitHub — `docs/decisions.md`, «Заверение у Apple»).
+
+## Что делает, по шагам
+
+1. убеждается, что выпуск — ЧЕРНОВИК: опубликованный не трогается
+   никогда, как и в `release.yml`;
+2. достаёт код ровно под меткой во времянку (`git worktree`), а не
+   берёт рабочую папку: туда могло попасть незакоммиченное, и архив
+   разошёлся бы с меткой молча — ровно то, ради чего мак когда-то
+   собирали на GitHub;
+3. собирает раздачу оттуда с `--notarize` — подпись автора, заверение
+   у Apple, проверка распаковкой (`build-release.py`);
+4. кладёт архив в черновик и дописывает его сумму в `SHA256SUMS.txt`,
+   не трогая виндовую строку.
+
+**Без этого шага в черновике нет маковского архива вовсе** — и это
+нарочно: пустое место видно, а архив без заверения выглядит ровно
+как заверенный.
+"""
+
+from __future__ import annotations
+
+import argparse
+import hashlib
+import shutil
+import subprocess
+import sys
+import tempfile
+from pathlib import Path
+
+ЗДЕСЬ = Path(__file__).resolve().parent
+КОРЕНЬ = ЗДЕСЬ.parent
+АРХИВ = "Vertcut-mac.zip"
+СУММЫ = "SHA256SUMS.txt"
+
+
+def выполнить(команда: list[str], **к) -> subprocess.CompletedProcess:
+    return subprocess.run(команда, check=True, text=True, **к)
+
+
+def черновик_ли(метка: str) -> None:
+    """Отказ словами, если выпуска нет или он уже опубликован."""
+    вышло = subprocess.run(
+        ["gh", "release", "view", метка, "--json", "isDraft", "--jq", ".isDraft"],
+        capture_output=True, text=True, cwd=КОРЕНЬ)
+    if вышло.returncode != 0:
+        raise SystemExit(
+            f"There's no release {метка} on GitHub yet. Push the tag first "
+            "and wait for the Release workflow to make the draft.\n"
+            + вышло.stderr.strip())
+    if вышло.stdout.strip() != "true":
+        raise SystemExit(f"Release {метка} is already published — not touching it.")
+
+
+def суммы_с_маком(старые: str, архив: Path) -> str:
+    """`SHA256SUMS.txt` черновика с новой строкой для маковского архива.
+
+    Прочие строки (виндовая) остаются как были: их считал GitHub,
+    и пересчитывать чужое здесь нечем и незачем.
+    """
+    сумма = hashlib.sha256(архив.read_bytes()).hexdigest()
+    строки = [с for с in старые.splitlines()
+              if с.strip() and not с.rstrip().endswith(АРХИВ)]
+    строки.append(f"{сумма}  {АРХИВ}")
+    return "\n".join(sorted(строки, key=lambda с: с.split()[-1])) + "\n"
+
+
+def main(аргументы=None) -> int:
+    разбор = argparse.ArgumentParser(
+        description="Build the notarized Mac release from a tag and put it "
+        "into that tag's draft release")
+    разбор.add_argument("метка", metavar="tag", help="e.g. v0.2.1")
+    это = разбор.parse_args(аргументы)
+    метка = это.метка
+    if sys.platform != "darwin":
+        raise SystemExit("The Mac release is built on a Mac.")
+    if shutil.which("gh") is None:
+        raise SystemExit("No `gh` — GitHub's command line tool is needed "
+                         "to put the archive into the draft.")
+
+    черновик_ли(метка)
+    выполнить(["git", "fetch", "--quiet", "origin", "tag", метка], cwd=КОРЕНЬ)
+
+    врем = Path(tempfile.mkdtemp(prefix="vertcut-release-"))
+    код = врем / "code"
+    try:
+        выполнить(["git", "worktree", "add", "--quiet", "--detach",
+                   str(код), метка], cwd=КОРЕНЬ)
+        выполнить([sys.executable, str(код / "install" / "build-release.py"),
+                   "--notarize", "--out", str(врем)])
+        архив = врем / АРХИВ
+
+        выполнить(["gh", "release", "download", метка, "--pattern", СУММЫ,
+                   "--dir", str(врем), "--clobber"], cwd=КОРЕНЬ)
+        суммы = врем / СУММЫ
+        суммы.write_text(суммы_с_маком(суммы.read_text(encoding="utf-8"), архив),
+                         encoding="utf-8")
+        выполнить(["gh", "release", "upload", метка, str(архив), str(суммы),
+                   "--clobber"], cwd=КОРЕНЬ)
+        print(f"\n{АРХИВ} is in the draft of {метка}, notarized; "
+              f"{СУММЫ} updated:\n{суммы.read_text(encoding='utf-8')}")
+        print("Before publishing: download it from the draft and open it "
+              "on a Mac with a double-click.")
+    finally:
+        subprocess.run(["git", "worktree", "remove", "--force", str(код)],
+                       cwd=КОРЕНЬ, capture_output=True)
+        shutil.rmtree(врем, ignore_errors=True)
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
