@@ -31,6 +31,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import re
 import shutil
 import subprocess
 import sys
@@ -47,10 +48,31 @@ def выполнить(команда: list[str], **к) -> subprocess.CompletedP
     return subprocess.run(команда, check=True, text=True, **к)
 
 
-def черновик_ли(метка: str) -> None:
+def имя_репозитория(адрес: str) -> str:
+    """`владелец/имя` из адреса `origin` — для `gh --repo`.
+
+    Без `--repo` `gh` сам выбирает репозиторий, а у рабочей копии автора
+    их два (`origin` — открытый, `dev` — старый закрытый): на выпуске
+    0.2.1 `gh` отказал «No default remote repository». Черновик лежит
+    там, куда уходит метка, — то есть в `origin`.
+    """
+    найдено = re.search(r"github\.com[:/]([^/]+/[^/]+?)(?:\.git)?/?$", адрес)
+    if not найдено:
+        raise SystemExit(f"The origin remote isn't a GitHub address: {адрес}")
+    return найдено.group(1)
+
+
+def репозиторий() -> str:
+    адрес = выполнить(["git", "remote", "get-url", "origin"], cwd=КОРЕНЬ,
+                      capture_output=True).stdout.strip()
+    return имя_репозитория(адрес)
+
+
+def черновик_ли(метка: str, репо: str) -> None:
     """Отказ словами, если выпуска нет или он уже опубликован."""
     вышло = subprocess.run(
-        ["gh", "release", "view", метка, "--json", "isDraft", "--jq", ".isDraft"],
+        ["gh", "release", "view", метка, "--repo", репо,
+         "--json", "isDraft", "--jq", ".isDraft"],
         capture_output=True, text=True, cwd=КОРЕНЬ)
     if вышло.returncode != 0:
         raise SystemExit(
@@ -87,7 +109,8 @@ def main(аргументы=None) -> int:
         raise SystemExit("No `gh` — GitHub's command line tool is needed "
                          "to put the archive into the draft.")
 
-    черновик_ли(метка)
+    репо = репозиторий()
+    черновик_ли(метка, репо)
     выполнить(["git", "fetch", "--quiet", "origin", "tag", метка], cwd=КОРЕНЬ)
 
     врем = Path(tempfile.mkdtemp(prefix="vertcut-release-"))
@@ -99,13 +122,14 @@ def main(аргументы=None) -> int:
                    "--notarize", "--out", str(врем)])
         архив = врем / АРХИВ
 
-        выполнить(["gh", "release", "download", метка, "--pattern", СУММЫ,
+        выполнить(["gh", "release", "download", метка, "--repo", репо,
+                   "--pattern", СУММЫ,
                    "--dir", str(врем), "--clobber"], cwd=КОРЕНЬ)
         суммы = врем / СУММЫ
         суммы.write_text(суммы_с_маком(суммы.read_text(encoding="utf-8"), архив),
                          encoding="utf-8")
-        выполнить(["gh", "release", "upload", метка, str(архив), str(суммы),
-                   "--clobber"], cwd=КОРЕНЬ)
+        выполнить(["gh", "release", "upload", метка, "--repo", репо,
+                   str(архив), str(суммы), "--clobber"], cwd=КОРЕНЬ)
         print(f"\n{АРХИВ} is in the draft of {метка}, notarized; "
               f"{СУММЫ} updated:\n{суммы.read_text(encoding='utf-8')}")
         print("Before publishing: download it from the draft and open it "
