@@ -363,14 +363,25 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # `PY_PYTHON` — потому что машина GitHub не чистая. С ноября 2026
+      # в её образе уже стоит питон 3.15, а `py` берёт самый новый
+      # из стоящих — и README падал на `pip install` («requires
+      # a different Python: 3.15.2»), хотя 3.13 только что поставлен.
+      # У человека, который поставил один 3.13, `py` — это 3.13; так
+      # и здесь. Проверка ниже валится, если `py` всё-таки не 3.13:
+      # молча проверять README чужим питоном хуже, чем упасть.
       - name: Питон, как его ставит человек
         run: |
           $url = 'https://www.python.org/ftp/python/3.13.15/python-3.13.15-amd64.exe'
           Invoke-WebRequest $url -OutFile python-setup.exe
           Start-Process python-setup.exe -Wait -ArgumentList `
             '/quiet', 'InstallAllUsers=1', 'PrependPath=1', 'Include_launcher=1'
-          & py --version
+          $env:PY_PYTHON = '3.13'
+          'PY_PYTHON=3.13' | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding ascii
+          $version = & py --version
           if ($LASTEXITCODE -ne 0) { throw 'py did not appear' }
+          $version
+          if ($version -notlike 'Python 3.13.*') { throw "py is $version, not 3.13" }
 
       - name: ffmpeg в PATH
         run: |
