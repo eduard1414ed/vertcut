@@ -15,6 +15,7 @@ from __future__ import annotations
 import json
 import os
 import signal
+import signal
 import socket
 import subprocess
 import sys
@@ -39,13 +40,23 @@ def живой_экран(песочница):
     """`vertcut screen --no-browser` отдельным процессом в песочнице."""
     layout.root().mkdir(parents=True, exist_ok=True)
     процесс = subprocess.Popen(
-        [sys.executable, "-m", "vertcut", "screen", "--no-browser",
-         "--port", str(_свободный_порт())],
+        [sys.executable, "-X", "faulthandler", "-m", "vertcut", "screen",
+         "--no-browser", "--port", str(_свободный_порт())],
         stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
         env=dict(os.environ, PYTHONUTF8="1"))
     срок = time.monotonic() + 30
     while server.живой_хозяин() is None:
         if процесс.poll() is not None or time.monotonic() > срок:
+            # Живого сперва гасим: читать вывод работающего — значит
+            # ждать вечно. На машине macOS так зависало до предела в
+            # 45 минут, и журнал не называл ни одной проверки. SIGABRT —
+            # чтобы питон напечатал, на какой строке стоял.
+            if процесс.poll() is None:
+                if os.name == "posix":
+                    процесс.send_signal(signal.SIGABRT)
+                else:
+                    процесс.kill()
+                процесс.wait(timeout=10)
             вывод = процесс.stdout.read().decode("utf-8", "replace")
             pytest.fail(f"экран не поднялся:\n{вывод}")
         time.sleep(0.1)
