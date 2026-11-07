@@ -15,7 +15,6 @@ from __future__ import annotations
 import json
 import os
 import signal
-import signal
 import socket
 import subprocess
 import sys
@@ -66,6 +65,22 @@ def живой_экран(песочница):
         if процесс.poll() is None:
             процесс.kill()
         процесс.wait(timeout=10)
+
+
+def test_экран_не_спрашивает_сеть_при_запуске(monkeypatch):
+    """Стандартный сервер спрашивает `socket.getfqdn` имя своего адреса.
+    На машине macOS у GitHub ответ не приходил дольше 30 секунд, и экран
+    не поднимался; то же ждало бы человека с плохой сетью. Имя не нужно."""
+    def нельзя(*_):
+        raise AssertionError("экран спросил сеть")
+
+    monkeypatch.setattr(socket, "getfqdn", нельзя)
+    сервер = server.Экран(("127.0.0.1", 0), "пропуск")
+    try:
+        assert сервер.server_address[1]
+        assert сервер.server_name == "127.0.0.1"
+    finally:
+        сервер.server_close()
 
 
 def _ушёл(процесс, сколько: float = 10) -> int:

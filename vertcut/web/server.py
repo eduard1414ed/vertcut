@@ -48,6 +48,7 @@ import json
 import os
 import secrets
 import socket
+import socketserver
 import sys
 import threading
 import time
@@ -146,6 +147,18 @@ class Экран(ThreadingHTTPServer):
     def __init__(self, адрес, пропуск: str):
         super().__init__(адрес, Ручка)
         self.пропуск = пропуск
+
+    def server_bind(self) -> None:
+        """Сесть на порт, не спрашивая сеть.
+
+        Стандартный `HTTPServer.server_bind` зовёт `socket.getfqdn` —
+        обратный запрос имени для адреса. Ответ нам не нужен: адрес
+        всегда 127.0.0.1, а имя стандартный сервер больше ни для чего
+        не берёт. На машине macOS у GitHub ответ не приходил дольше
+        30 секунд, и экран не поднимался вовсе.
+        """
+        socketserver.TCPServer.server_bind(self)
+        self.server_name, self.server_port = self.server_address[:2]
 
     @property
     def имена(self) -> set[str]:
