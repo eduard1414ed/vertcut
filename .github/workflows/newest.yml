@@ -118,9 +118,14 @@ jobs:
         name: vertcut check
         run: vertcut check
 
+      # Зависшая проверка не должна молча съедать 45 минут: через две
+      # минуты на одной проверке pytest печатает, где она стоит, и гасит
+      # прогон. На macOS так зависало три недели подряд, а журнал не
+      # называл ни одной проверки: pytest пишет строку раз в 72 точки.
       - id: tests
         name: Проверки проекта
-        run: python -m pytest -q
+        timeout-minutes: 15
+        run: python -m pytest -q -o faulthandler_timeout=120 -o faulthandler_exit_on_timeout=true
 
       - id: ingest
         name: Разбор видео с речью
