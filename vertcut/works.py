@@ -17,6 +17,7 @@ import os
 import signal
 import sys
 import time
+import uuid
 from datetime import datetime
 from pathlib import Path
 
@@ -108,6 +109,12 @@ def записать(файл: Path, состояние: dict, отступ: int
     и падал трассировкой — а экран сборки показывает журнал человеку.
     Поймано прочёсом (`tools/cyrillic-sweep.py`).
 
+    **Имя времянки не берётся из часов и номера процесса.** Экран
+    многопоточный, а на Windows до питона 3.13 `time.monotonic` тикает
+    раз в 15,6 мс: нити одного процесса получали одно имя. Проверка
+    на Windows шла на 3.13 и этого не видела; показала еженедельная
+    на 3.11.
+
     **На Windows замена повторяется.** Там `replace` отказывает
     («Access is denied»), пока ту же цель в это мгновение заменяет
     другой, — гонка, а не запрет. Число попыток — `tuning.ПОПЫТОК_ЗАМЕНЫ`.
@@ -122,7 +129,7 @@ def записать(файл: Path, состояние: dict, отступ: int
     from . import tuning
 
     файл.parent.mkdir(parents=True, exist_ok=True)
-    врем = файл.with_name(f"{файл.name}.{os.getpid()}.{time.monotonic_ns()}.part")
+    врем = файл.with_name(f"{файл.name}.{uuid.uuid4().hex}.part")
     врем.write_text(json.dumps(состояние, ensure_ascii=False, indent=отступ) + "\n",
                     encoding="utf-8")
     for попытка in range(tuning.ПОПЫТОК_ЗАМЕНЫ):

@@ -3274,6 +3274,36 @@ def test_файл_работы_пишут_двое_разом(песочница
     assert not list(файл.parent.glob("*.part"))
 
 
+def test_времянка_своя_даже_если_часы_стоят(песочница, monkeypatch):
+    """На Windows до питона 3.13 `time.monotonic` тикает раз в 15,6 мс,
+    и нити одного процесса получали одно имя времянки: писали в один
+    файл и роняли друг друга (еженедельная проверка на 3.11). Такие
+    часы есть не у всех, поэтому здесь они просто стоят — на любой
+    системе и на любом питоне."""
+    import time
+
+    from vertcut import works
+
+    monkeypatch.setattr(time, "monotonic_ns", lambda: 0)
+    файл = layout.root() / "q" / "queue.json"
+    беды = []
+
+    def писать(н):
+        try:
+            for i in range(40):
+                works.записать(файл, {"кто": н, "i": i})
+        except Exception as б:          # noqa: BLE001
+            беды.append(б)
+
+    нити = [threading.Thread(target=писать, args=(н,)) for н in range(4)]
+    for н in нити:
+        н.start()
+    for н in нити:
+        н.join()
+    assert not беды, беды
+    assert not list(файл.parent.glob("*.part"))
+
+
 def test_брошенное_соединение_не_печатает_трассировку(экран, capfd):
     """Вкладку закрыли — соединение рвётся сбросом до наших ручек.
     Это не падение, и в журнал оно трассировкой не идёт."""
